@@ -1,0 +1,27 @@
+# MobileCharger specifications
+mc_phy_spe:
+  "capacity" : 108000
+  "threshold" : 0
+  "velocity" : 5
+  "pm" : 1
+  "charging_range" : 100
+  "alpha" : 4500
+  "beta" : 30
+  "epsilon" : 0.0000000001
+# multiple nodes charging model
+node_phy_spe:
+  "capacity" : 10800
+  "threshold" : 540
+  "com_range": 100
+  "prob_gp": 0.8
+  # others
+  "package_size" : 40000.0
+  # transmission specifications
+  "er" : 0.0001
+  "et" : 0.00005
+  "efs" : 0.00000001
+  "emp" : 0.0000000000013
+
+# data path
+default_net : "environments/data/test.yaml"
+seed : 0

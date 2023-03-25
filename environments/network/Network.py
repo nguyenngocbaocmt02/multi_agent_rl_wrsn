@@ -62,27 +62,10 @@ class Network:
         self.env.process(self.baseStation.operate(t=t))
 
         while True:
-            print("CURRENT SIM TIME", self.env.now)
-
             yield self.env.timeout(t / 10.0)
-
             self.setLevels()
-
             alive = self.check_targets()
-
             yield self.env.timeout(9.0 * t / 10.0)
-            print(self.env.now)
-            min_e = 20000
-            min_id = []
-            for node in self.listNodes:
-                if node.energy < min_e:
-                    min_e = node.energy
-                    min_id = []
-                    min_id.append(node.id)
-                elif node.energy == min_e:
-                    min_id.append(node.id)
-            print(len(min_id), "NODE(S) ARE AT E_MIN")
-            print("NODE", min_id,"with min energy ", min_e)
             if alive == 0 or self.env.now >= max_time:
                 if alive == 0:
                     print ("BREAKING DUE TO ALIVE = 0")
@@ -93,6 +76,7 @@ class Network:
             for node in self.listNodes:
                 if node.status == 0:
                     tmp += 1
+            print(self.env.now, tmp)
         return
 
     # If any target dies, value is set to 0

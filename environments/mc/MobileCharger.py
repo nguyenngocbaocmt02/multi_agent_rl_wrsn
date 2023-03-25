@@ -1,9 +1,9 @@
 from environments.Extension import *
-
+import numpy as np
+from scipy.spatial.distance import euclidean
 
 class MobileCharger:
-
-    def __init__(self, location, mc_specification):
+    def __init__(self, location, mc_phy_spe):
         """
         The initialization for a MC.
         :param env: the time management system of this MC
@@ -13,18 +13,18 @@ class MobileCharger:
         self.net = None
         self.id = None
 
-        self.location = location
-        self.energy = mc_specification.mc_capacity
-        self.capacity = mc_specification.mc_capacity
+        self.location = np.array(location)
+        self.energy = mc_phy_spe['capacity']
+        self.capacity = mc_phy_spe['capacity']
 
-        self.alpha = mc_specification.mc_alpha
-        self.beta = mc_specification.mc_beta
-        self.threshold = mc_specification.mc_threshold
-        self.velocity = mc_specification.mc_velocity
-        self.pm = mc_specification.mc_pm
+        self.alpha = mc_phy_spe['alpha']
+        self.beta = mc_phy_spe['beta']
+        self.threshold = mc_phy_spe['threshold']
+        self.velocity = mc_phy_spe['velocity']
+        self.pm = mc_phy_spe['pm']
         self.chargingRate = 0
-        self.chargingRange = mc_specification.mc_charging_range
-        self.epsilon = mc_specification.epsilon
+        self.chargingRange = mc_phy_spe['charging_range']
+        self.epsilon = mc_phy_spe['epsilon']
         self.status = 1
         self.checkStatus()
         self.log = []
@@ -67,30 +67,28 @@ class MobileCharger:
                 break
         return
 
-    def move_step(self, vector, t=1):
-        move_time = min(t, (self.energy - self.threshold) / self.pm)
-        yield self.env.timeout(move_time)
-        for i in range(len(vector)):
-            self.location[i] += (vector[i] * self.velocity * move_time)
-        self.energy -= self.pm * move_time
+    def move_step(self, vector, t):
+        yield self.env.timeout(t)
+        self.location = self.location + vector
+        self.energy -= self.pm * t * self.velocity
         print(self.env.now, ": MC ", self.id, " move: ", self.energy, self.chargingRate, self.location)
         self.checkStatus()
 
-    def move(self, vector, moving_time, to_base):
-        if to_base:
-            moving_time = min(moving_time,
-                              euclideanDistance(self.net.baseStation.location, self.location) / self.velocity)
+    def move(self, destination):
+        print(destination, self.location, self.velocity)
+        moving_time = euclidean(destination, self.location) / self.velocity
+        moving_vector = destination - self.location
+        print(moving_time)
         tmp = moving_time
-        vector = regularize(vector)
-        if vector is not None:
-            while True:
-                span = min(tmp, 1.0)
-                yield self.env.process(self.move_step(vector, t=span))
-                tmp -= span
-                if tmp == 0 or self.status == 0:
-                    break
-        if to_base:
-            self.self_charge()
+        while True:
+            span = min(tmp, 1.0)
+            yield self.env.process(self.move_step(moving_vector / moving_time * span, t=span))
+            tmp -= span
+            if tmp == 0:
+                self.location = destination
+                break
+            if self.status == 0:
+                break
         return
 
     def self_charge(self):

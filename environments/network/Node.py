@@ -6,22 +6,22 @@ from environments.network.Package import Package
 
 class Node:
 
-    def __init__(self, location, energy, threshold, capacity, phy_spe):
+    def __init__(self, location, phy_spe):
         self.env = None
         self.net = None
 
         self.location = location
-        self.energy = energy
-        self.threshold = threshold
-        self.capacity = capacity
+        self.energy = phy_spe['capacity']
+        self.threshold = phy_spe['threshold']
+        self.capacity = phy_spe['capacity']
 
-        self.node_com_range = phy_spe.node_com_range
-        self.node_prob_gp = phy_spe.node_prob_gp
-        self.package_size = phy_spe.package_size
-        self.er = phy_spe.er
-        self.et = phy_spe.et
-        self.efs = phy_spe.efs
-        self.emp = phy_spe.emp
+        self.node_com_range = phy_spe['com_range']
+        self.node_prob_gp = phy_spe['prob_gp']
+        self.package_size = phy_spe['package_size']
+        self.er = phy_spe['er']
+        self.et = phy_spe['et']
+        self.efs = phy_spe['efs']
+        self.emp = phy_spe['emp']
 
         # energRR  : replenish rate
         self.energyRR = 0
