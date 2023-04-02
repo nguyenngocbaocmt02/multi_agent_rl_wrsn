@@ -1,6 +1,5 @@
-import environments.Extension as Ex
-from environments.network import Parameter
-
+from scipy.spatial.distance import euclidean
+import numpy as np
 
 class BaseStation:
     def __init__(self, location):
@@ -14,13 +13,13 @@ class BaseStation:
         # include all components in our network
         self.net = None
 
-        self.location = location
-        self.direct_nodes = []
+        self.location = np.array(location)
         self.monitored_target = []
+        self.direct_nodes = []
 
     def probe_neighbors(self):
         for node in self.net.listNodes:
-            if Ex.euclideanDistance(self.location, node.location) <= Parameter.COM_RANGE:
+            if euclidean(self.location, node.location) <= node.com_range:
                 self.direct_nodes.append(node)
 
     def receive_package(self, package):
@@ -30,8 +29,3 @@ class BaseStation:
         self.probe_neighbors()
         while True:
             yield self.env.timeout(t)
-
-# def chargeMC(self, mc, t=0):
-#    if distance.euclidean(mc.location, self.location) == 0:
-#        mc.energy = mc.capacity
-#    yield self.env.timeout(t)

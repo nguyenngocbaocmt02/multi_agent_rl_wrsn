@@ -4,7 +4,7 @@ mc_phy_spe:
   "threshold" : 0
   "velocity" : 5
   "pm" : 1
-  "charging_range" : 100
+  "charging_range" : 20
   "alpha" : 4500
   "beta" : 30
   "epsilon" : 0.0000000001
@@ -12,10 +12,11 @@ mc_phy_spe:
 node_phy_spe:
   "capacity" : 10800
   "threshold" : 540
-  "com_range": 100
-  "prob_gp": 0.8
+  "com_range": 80
+  "sen_range": 40
+  "prob_gp": 1
   # others
-  "package_size" : 40000.0
+  "package_size" : 400.0
   # transmission specifications
   "er" : 0.0001
   "et" : 0.00005
