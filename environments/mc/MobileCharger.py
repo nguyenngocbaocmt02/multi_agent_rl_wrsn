@@ -37,7 +37,7 @@ class MobileCharger:
         """
         for node in nodes:
             node.charger_connection(self)
-        #print("MC " + str(self.id) + " Charging", self.location, self.energy, self.chargingRate)
+        print("MC " + str(self.id) + " Charging", self.location, self.energy, self.chargingRate)
         yield self.env.timeout(t)
         self.energy = self.energy - self.chargingRate * t
 
@@ -74,13 +74,14 @@ class MobileCharger:
         if moving_time == 0:
             return
         moving_vector = destination - self.location
-
+        total_moving_time = moving_time
+        print(moving_vector)
         while True:
-            #print("MC " + str(self.id) + " Moving", self.location, self.energy, self.chargingRate)
+            print("MC " + str(self.id) + " Moving", self.location, self.energy, self.chargingRate)
             span = min(min(moving_time, 1.0), (self.energy - self.threshold) / (self.pm * self.velocity))
-            yield self.env.process(self.move_step(moving_vector / moving_time * span, t=span))
+            yield self.env.process(self.move_step(moving_vector / total_moving_time * span, t=span))
             moving_time -= span
-            if moving_time == 0 or self.status == 0:
+            if moving_time <= 0 or self.status == 0:
                 break
         return
 

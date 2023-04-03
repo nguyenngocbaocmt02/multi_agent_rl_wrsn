@@ -65,29 +65,27 @@ class Network:
         return
 
 
-    def operate(self, t=1, max_time=10):
-
+    def operate(self, t=1, max_time=1000000):
+        
         for node in self.listNodes:
             self.env.process(node.operate(t=t))
         self.env.process(self.baseStation.operate(t=t))
-
+        timeout = max_time
         while True:
             yield self.env.timeout(t / 10.0)
+            timeout -= t/10.0
             self.setLevels()
             alive = self.check_targets()
             yield self.env.timeout(9.0 * t / 10.0)
-            if alive == 0 or self.env.now >= max_time:
-                if alive == 0:
-                    print ("BREAKING DUE TO ALIVE = 0")
-                else:
-                    print ("BREAKING DUE TO MAX_TIME < NOW")
-                break
+            timeout -= 9.0 * t / 10.0
             tmp = 0
             for node in self.listNodes:
                 if node.status == 0:
                     tmp += 1
             if self.env.now % 100 == 0:
                 print(self.env.now, tmp)
+            if alive == 0 or timeout < 0:
+                break            
         return
 
     # If any target dies, value is set to 0
