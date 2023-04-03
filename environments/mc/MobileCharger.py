@@ -113,7 +113,7 @@ class MobileCharger:
     
     def operate(self, controller):
         while True:
-            action = controller.make_action()
+            action = controller.make_action(self.id)
             yield self.env.process(self.operate_step(action))
 
     def checkStatus(self):
