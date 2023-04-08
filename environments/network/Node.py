@@ -1,6 +1,6 @@
 import random
 import numpy as np
-from environments.Extension import *
+from scipy.spatial.distance import euclidean
 from environments.network.Package import Package
 
 
@@ -10,13 +10,14 @@ class Node:
         self.env = None
         self.net = None
 
-        self.location = location
+        self.location = np.array(location)
         self.energy = phy_spe['capacity']
         self.threshold = phy_spe['threshold']
         self.capacity = phy_spe['capacity']
 
-        self.node_com_range = phy_spe['com_range']
-        self.node_prob_gp = phy_spe['prob_gp']
+        self.com_range = phy_spe['com_range']
+        self.sen_range = phy_spe['sen_range']
+        self.prob_gp = phy_spe['prob_gp']
         self.package_size = phy_spe['package_size']
         self.er = phy_spe['er']
         self.et = phy_spe['et']
@@ -54,7 +55,7 @@ class Node:
             if self.status == 0:
                 break
             self.energy = min(self.energy + self.energyRR * t * 0.5, self.capacity)
-            if random.random() < self.node_prob_gp:
+            if random.random() < self.prob_gp:
                 self.generate_packages()
 
             # After another 0.5 secs (at the end of the second), node recalculate its energy
@@ -76,20 +77,20 @@ class Node:
     def probe_neighbors(self):
         self.neighbors.clear()
         for node in self.net.listNodes:
-            if self != node and euclideanDistance(node.location, self.location) <= self.node_com_range:
+            if self != node and euclidean(node.location, self.location) <= self.com_range:
                 self.neighbors.append(node)
 
     def probe_targets(self):
         self.listTargets.clear()
         for target in self.net.listTargets:
-            if euclideanDistance(self.location, target.location) <= self.node_com_range:
+            if euclidean(self.location, target.location) <= self.sen_range:
                 self.listTargets.append(target)
 
     def find_receiver(self):
         candidates = [node for node in self.neighbors
                       if node.level < self.level and node.status == 1]
         if len(candidates) > 0:
-            distances = [euclideanDistance(candidate.location, self.location) for candidate in
+            distances = [euclidean(candidate.location, self.location) for candidate in
                          candidates]
             return candidates[np.argmin(distances)]
         else:
@@ -101,12 +102,12 @@ class Node:
 
     def send_package(self, package):
         d0 = (self.efs / self.emp) ** 0.5
-        if euclideanDistance(self.location, self.net.baseStation.location) > self.node_com_range:
+        if euclidean(self.location, self.net.baseStation.location) > self.com_range:
             receiver = self.find_receiver()
         else:
             receiver = self.net.baseStation
         if receiver is not None:
-            d = euclideanDistance(self.location, receiver.location)
+            d = euclidean(self.location, receiver.location)
             e_send = ((self.et + self.efs * d ** 2) if d <= d0
                       else (self.et + self.emp * d ** 4)) * package.package_size
             if self.energy - self.threshold < e_send:
@@ -130,14 +131,14 @@ class Node:
     def charger_connection(self, mc):
         if self.status == 0:
             return
-        tmp = mc.alpha / (euclideanDistance(self.location, mc.location) + mc.beta) ** 2
+        tmp = mc.alpha / (euclidean(self.location, mc.location) + mc.beta) ** 2
         self.energyRR += tmp
         mc.chargingRate += tmp
 
     def charger_disconnection(self, mc):
         if self.status == 0:
             return
-        tmp = mc.alpha / (euclideanDistance(self.location, mc.location) + mc.beta) ** 2
+        tmp = mc.alpha / (euclidean(self.location, mc.location) + mc.beta) ** 2
         self.energyRR -= tmp
         mc.chargingRate -= tmp
 

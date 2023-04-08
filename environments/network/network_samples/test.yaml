@@ -1,6 +1,24 @@
+# multiple nodes charging model
+node_phy_spe:
+  "capacity" : 10800
+  "threshold" : 540
+  "com_range": 80
+  "sen_range": 40
+  "prob_gp": 1
+  # others
+  "package_size" : 400.0
+  # transmission specifications
+  "er" : 0.0001
+  "et" : 0.00005
+  "efs" : 0.00000001
+  "emp" : 0.0000000000013
+
+seed: 0
+
 base_station:
 - 500
 - 500
+
 nodes:
 - - 858.199756728919
   - 699.4093367491517

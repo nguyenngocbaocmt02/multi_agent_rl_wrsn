@@ -1,6 +1,6 @@
-from environments.Extension import *
 import numpy as np
 from scipy.spatial.distance import euclidean
+import copy
 
 class MobileCharger:
     def __init__(self, location, mc_phy_spe):
@@ -37,16 +37,9 @@ class MobileCharger:
         """
         for node in nodes:
             node.charger_connection(self)
-
-        if self.chargingRate != 0:
-            charge_time = min(t, (self.energy - self.threshold) / self.chargingRate)
-        else:
-            charge_time = t
-
-        yield self.env.timeout(charge_time)
-        self.energy = self.energy - self.chargingRate * charge_time
-        self.checkStatus()
-        print(self.env.now, ": MC ", self.id, " charge: ", self.energy, self.chargingRate, self.location)
+        print("MC " + str(self.id) + " Charging", self.location, self.energy, self.chargingRate)
+        yield self.env.timeout(t)
+        self.energy = self.energy - self.chargingRate * t
 
         for node in nodes:
             node.charger_disconnection(self)
@@ -57,12 +50,15 @@ class MobileCharger:
         tmp = chargingTime
         nodes = []
         for node in self.net.listNodes:
-            if euclideanDistance(node.location, self.location) <= self.chargingRange:
+            if euclidean(node.location, self.location) <= self.chargingRange:
                 nodes.append(node)
         while True:
             span = min(tmp, 1.0)
+            if self.chargingRate != 0:
+                span = min(span, (self.energy - self.threshold) / self.chargingRate)
             yield self.env.process(self.charge_step(nodes, t=span))
             tmp -= span
+            self.checkStatus()
             if tmp == 0 or self.status == 0:
                 break
         return
@@ -71,35 +67,55 @@ class MobileCharger:
         yield self.env.timeout(t)
         self.location = self.location + vector
         self.energy -= self.pm * t * self.velocity
-        print(self.env.now, ": MC ", self.id, " move: ", self.energy, self.chargingRate, self.location)
-        self.checkStatus()
+        
 
     def move(self, destination):
-        print(destination, self.location, self.velocity)
         moving_time = euclidean(destination, self.location) / self.velocity
+        if moving_time == 0:
+            return
         moving_vector = destination - self.location
-        print(moving_time)
-        tmp = moving_time
+        total_moving_time = moving_time
+        print(moving_vector)
         while True:
-            span = min(tmp, 1.0)
-            yield self.env.process(self.move_step(moving_vector / moving_time * span, t=span))
-            tmp -= span
-            if tmp == 0:
-                self.location = destination
-                break
-            if self.status == 0:
+            print("MC " + str(self.id) + " Moving", self.location, self.energy, self.chargingRate)
+            span = min(min(moving_time, 1.0), (self.energy - self.threshold) / (self.pm * self.velocity))
+            yield self.env.process(self.move_step(moving_vector / total_moving_time * span, t=span))
+            moving_time -= span
+            if moving_time <= 0 or self.status == 0:
                 break
         return
 
-    def self_charge(self):
-        print(self.env.now, ": MC ", self.id, " self charge: ", self.energy, self.chargingRate, self.location)
-        print(self.location, self.net.baseStation.location)
-        if euclideanDistance(self.location, self.net.baseStation.location) <= self.epsilon:
-            for i in range(len(self.location)):
-                self.location[i] = self.net.baseStation.location[i]
+    def recharge(self):
+        if euclidean(self.location, self.net.baseStation.location) <= self.epsilon:
+            self.location = copy.deepcopy(self.net.baseStation.location)
             self.energy = self.capacity
-        print(self.env.now, ": MC ", self.id, " self charge: ", self.energy, self.chargingRate, self.location)
-        return
+        yield self.env.timeout(0)
+    
+    def operate_step(self, action):
+        print(action)
+        destination = np.array([action[0], action[1]])
+        chargingTime = action[2]
+
+        usedEnergy = euclidean(destination, self.location) * self.pm
+        tmp = 0
+        for node in self.net.listNodes:
+            if euclidean(node.location, self.location) <= self.chargingRange and node.status == 1:
+               tmp += self.alpha / (euclidean(self.location, node.location) + self.beta) ** 2
+        usedEnergy += tmp * chargingTime
+        usedEnergy += euclidean(destination, self.net.baseStation.location) * self.pm
+
+        if usedEnergy > self.energy - self.threshold + self.capacity / 200.0:
+            yield self.env.process(self.move(destination=self.net.baseStation.location))
+            yield self.env.process(self.recharge())
+            return
+                
+        yield self.env.process(self.move(destination=destination))
+        yield self.env.process(self.charge(chargingTime=chargingTime))
+    
+    def operate(self, controller):
+        while True:
+            action = controller.make_action(self.id)
+            yield self.env.process(self.operate_step(action))
 
     def checkStatus(self):
         """
