@@ -75,7 +75,6 @@ class MobileCharger:
             return
         moving_vector = destination - self.location
         total_moving_time = moving_time
-        print(moving_vector)
         while True:
             print("MC " + str(self.id) + " Moving", self.location, self.energy, self.chargingRate)
             span = min(min(moving_time, 1.0), (self.energy - self.threshold) / (self.pm * self.velocity))
