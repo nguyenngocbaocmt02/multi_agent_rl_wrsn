@@ -1,7 +1,10 @@
 import random
 import numpy as np
 from scipy.spatial.distance import euclidean
-from environments.network.Package import Package
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+from Package import Package
 
 
 class Node:

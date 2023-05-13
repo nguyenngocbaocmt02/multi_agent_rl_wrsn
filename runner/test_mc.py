@@ -2,15 +2,15 @@ import sys
 import os
 import copy
 import yaml
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from environments.network.NetworkIO import NetworkIO
-from environments.mc.MobileCharger import MobileCharger
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from physical_env.network.NetworkIO import NetworkIO
+from physical_env.mc.MobileCharger import MobileCharger
 
 
-netIO = NetworkIO("environments/network/network_samples/test.yaml")
+netIO = NetworkIO("../physical_env/network/network_scenarios/test.yaml")
 env, net = netIO.makeNetwork()
 
-with open("environments/mc/mc_samples/default.yaml", 'r') as file:
+with open("../physical_env/mc/mc_types/default.yaml", 'r') as file:
     mc_argc = yaml.safe_load(file)
 mcs = [MobileCharger(copy.deepcopy(net.baseStation.location), mc_phy_spe=mc_argc) for _ in range(3)]
 

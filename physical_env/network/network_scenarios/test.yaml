@@ -13,8 +13,7 @@ node_phy_spe:
   "efs" : 0.00000001
   "emp" : 0.0000000000013
 
-seed: 0
-
+seed : 0
 base_station:
 - 500
 - 500

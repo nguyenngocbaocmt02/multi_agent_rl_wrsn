@@ -3,13 +3,16 @@ import simpy
 import yaml
 import random
 import numpy as np
-from environments.network.BaseStation import BaseStation
-from environments.network.Network import Network
-from environments.network.Node import Node
-from environments.network.Target import Target
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+from BaseStation import BaseStation
+from Network import Network
+from Node import Node
+from Target import Target
 
 class NetworkIO:
-    def __init__(self, file_data="environments/network/network_samples/test.yaml"):
+    def __init__(self, file_data="network/network_scenarios/test.yaml"):
         with open(file_data, 'r') as file:
             self.net_argc = yaml.safe_load(file)
 
