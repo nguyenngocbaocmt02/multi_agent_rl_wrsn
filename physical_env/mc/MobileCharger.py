@@ -29,6 +29,10 @@ class MobileCharger:
         self.checkStatus()
         self.log = []
 
+        self.destination = [0, 0]
+        self.chargingTime = 0
+        self.movingTime = 0
+
     def charge_step(self, nodes, t=1):
         """
         The charging process to nodes in 'nodes' within simulateTime
@@ -48,6 +52,7 @@ class MobileCharger:
 
     def charge(self, chargingTime):
         tmp = chargingTime
+        self.chargingTime = tmp
         nodes = []
         for node in self.net.listNodes:
             if euclidean(node.location, self.location) <= self.chargingRange:
@@ -58,6 +63,7 @@ class MobileCharger:
                 span = min(span, (self.energy - self.threshold) / self.chargingRate)
             yield self.env.process(self.charge_step(nodes, t=span))
             tmp -= span
+            self.chargingTime = tmp
             self.checkStatus()
             if tmp == 0 or self.status == 0:
                 break
@@ -71,18 +77,28 @@ class MobileCharger:
 
     def move(self, destination):
         moving_time = euclidean(destination, self.location) / self.velocity
+        self.destination = destination
+        self.movingTime = moving_time
         if moving_time == 0:
             return
         moving_vector = destination - self.location
         total_moving_time = moving_time
+        print(moving_vector)
         while True:
-            print("MC " + str(self.id) + " Moving", self.location, self.energy, self.chargingRate)
+            moving_time = euclidean(destination, self.location) / self.velocity
+            self.movingTime = moving_time
+            print("MC " + str(self.id) + " Moving from", self.location, "to", destination, "in", self.movingTime )
+            print(self.chargingTime)
+            if self.chargingTime == 0:
+                print ("NO charging")
             span = min(min(moving_time, 1.0), (self.energy - self.threshold) / (self.pm * self.velocity))
             yield self.env.process(self.move_step(moving_vector / total_moving_time * span, t=span))
             moving_time -= span
             if moving_time <= 0 or self.status == 0:
                 break
         return
+
+
 
     def recharge(self):
         if euclidean(self.location, self.net.baseStation.location) <= self.epsilon:
