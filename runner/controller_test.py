@@ -18,16 +18,15 @@ class WRSN:
         self.netIO = NetworkIO("environments/data/test.yaml", phy_para["node_phy_spe"])
 
 
-with open("environments/para.yaml", "r") as f:
-    phy_para = yaml.safe_load(f)
-print(phy_para)
-
-
 random.seed(0)
 
-netIO = NetworkIO("E:/gym-tc-wrsn/environments/network/network_samples/test_50.yaml")
+netIO = NetworkIO("D:/gym-tc-wrsn/physical_env/network/network_scenarios/test.yaml")
 env, net = netIO.makeNetwork()
-mcs = [MobileCharger(copy.deepcopy(net.baseStation.location), phy_para["mc_phy_spe"]) for _ in range(3)]
+
+with open("D:/gym-tc-wrsn/physical_env/mc/mc_types/default.yaml", "r") as file:
+    mc_phy_para = yaml.safe_load(file)
+ 
+mcs = [MobileCharger(copy.deepcopy(net.baseStation.location), mc_phy_para) for _ in range(3)]
 controller = RandomController(net, mcs)
 
 processes = []
@@ -39,4 +38,5 @@ for id, mc in enumerate(mcs):
     mc.id = id
     process = env.process(mc.operate(controller=controller))
     processes.append(process)
+env.run(until=processes[0])
 
