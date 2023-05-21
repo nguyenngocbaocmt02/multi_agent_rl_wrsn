@@ -58,7 +58,7 @@ start = time.time()
 first_heatmap_encode = np.zeros((size,size), dtype = np.float64)
 first_heatmap_encode_precalculate = np.zeros((len(net.listNodes),size,size), dtype = np.float64)
 amount = np.zeros((size+1,size+1))
-net.listNodes = net.listNodes[0:132]
+
 for id,node in tqdm(enumerate(net.listNodes)):
     tmp_res = np.zeros((size, size), dtype=np.float32)
     node_location_id_x = np.searchsorted(x_grid, node.location[0], side="right") - 1
