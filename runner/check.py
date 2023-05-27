@@ -4,12 +4,13 @@ import os
 import random
 from simpy.events import AnyOf
 import copy
+import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from physical_env.network.NetworkIO import NetworkIO
 from physical_env.mc.MobileCharger import MobileCharger
 from controller.bao.BaoController import BaoController
 from controller.random.RandomController import RandomController
-
+import matplotlib.pyplot as plt
 
 class WRSN:
     def __init__(self, phy_para, topology):
@@ -23,20 +24,12 @@ random.seed(0)
 netIO = NetworkIO("physical_env/network/network_scenarios/test.yaml")
 env, net = netIO.makeNetwork()
 
-with open("physical_env/mc/mc_types/default.yaml", "r") as file:
-    mc_phy_para = yaml.safe_load(file)
- 
-mcs = [MobileCharger(copy.deepcopy(net.baseStation.location), mc_phy_para) for _ in range(3)]
-controller = RandomController(net, mcs)
+node_x = [node.location[0] for node in net.listNodes]
+node_y = [node.location[1] for node in net.listNodes]
+target_x = [target.location[0] for target in net.listTargets]
+target_y = [target.location[1] for target in net.listTargets]
 
-processes = []
-processes.append(env.process(net.operate(max_time=100000)))
-# Loop through each controller and add its process to the list
-for id, mc in enumerate(mcs):
-    mc.env = env
-    mc.net = net
-    mc.id = id
-    process = env.process(mc.operate(controller=controller))
-    processes.append(process)
-env.run(until=processes[0])
-
+plt.scatter(np.array(node_x), np.array(node_y))
+plt.scatter(np.array([net.baseStation.location[0]]), np.array([net.baseStation.location[1]]), c="red")
+plt.scatter(np.array(target_x), np.array(target_y), c="green")
+plt.show()

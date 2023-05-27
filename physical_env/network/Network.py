@@ -82,9 +82,9 @@ class Network:
             for node in self.listNodes:
                 if node.status == 0:
                     tmp += 1
-            if self.env.now % 100 == 0:
+            if self.env.now % 100 == 1:
                 print(self.env.now, tmp)
-            if alive == 0 or timeout < 0:
+            if alive == 0 or timeout <= 0:
                 break            
         return
 

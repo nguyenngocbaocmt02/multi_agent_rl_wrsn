@@ -83,14 +83,10 @@ class MobileCharger:
             return
         moving_vector = destination - self.location
         total_moving_time = moving_time
-        print(moving_vector)
         while True:
             moving_time = euclidean(destination, self.location) / self.velocity
             self.movingTime = moving_time
-            print("MC " + str(self.id) + " Moving from", self.location, "to", destination, "in", self.movingTime )
-            print(self.chargingTime)
-            if self.chargingTime == 0:
-                print ("NO charging")
+            print("MC " + str(self.id) + " Moving from", self.location, "to", destination)
             span = min(min(moving_time, 1.0), (self.energy - self.threshold) / (self.pm * self.velocity))
             yield self.env.process(self.move_step(moving_vector / total_moving_time * span, t=span))
             moving_time -= span
@@ -107,7 +103,7 @@ class MobileCharger:
         yield self.env.timeout(0)
     
     def operate_step(self, action):
-        print(action)
+        print("MC " + str(self.id), "action", action)
         destination = np.array([action[0], action[1]])
         chargingTime = action[2]
 
@@ -122,8 +118,7 @@ class MobileCharger:
         if usedEnergy > self.energy - self.threshold + self.capacity / 200.0:
             yield self.env.process(self.move(destination=self.net.baseStation.location))
             yield self.env.process(self.recharge())
-            return
-                
+            return        
         yield self.env.process(self.move(destination=destination))
         yield self.env.process(self.charge(chargingTime=chargingTime))
     
