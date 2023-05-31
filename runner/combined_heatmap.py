@@ -2,11 +2,11 @@ import sys
 import os
 import copy
 import yaml
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from multi_agent_rl_wrsn.physical_env.network.NetworkIO import NetworkIO
-from multi_agent_rl_wrsn.physical_env.mc.MobileCharger import MobileCharger
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from physical_env.network.NetworkIO import NetworkIO
+from physical_env.mc.MobileCharger import MobileCharger
 from tqdm import tqdm
-from scipy.integrate import dblquad
+from scipy.integrate import quad
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -18,8 +18,7 @@ def first_heatmap_function(x,y, a, b):
 
 
 def second_heatmap_function(x,y, rct, cr, a, b):
-        return rct*0.01/((((x-a)**2 + (y-b)**2)**(1/10)))
-
+    return rct*0.01/((((x-a)**2 + (y-b)**2)**(1/10)))
 
 def third_heatmap_function(x,y,destination, location, velocity, cr):
     esp = 0.1
@@ -30,9 +29,9 @@ def third_heatmap_function(x,y,destination, location, velocity, cr):
     return velocity/(dis_to_des*dis_from_des_to_point)
 
 
-netIO = NetworkIO("C:/GIT/GIT_WRSN/multi_agent_rl_wrsn/physical_env/network/network_scenarios/test_50.yaml")
+netIO = NetworkIO("../physical_env/network/network_scenarios/test_50.yaml")
 env, net = netIO.makeNetwork()
-with open("C:/GIT/multi_agent_rl_wrsn/environments/mc/mc_samples/default.yaml", 'r') as file:
+with open("../physical_env/mc/mc_types/default.yaml", 'r') as file:
     mc_argc = yaml.safe_load(file)
 mcs = [MobileCharger(copy.deepcopy(net.baseStation.location), mc_phy_spe=mc_argc) for _ in range(10)]
 for id, mc in enumerate(mcs):
@@ -72,15 +71,15 @@ for id,node in tqdm(enumerate(net.listNodes)):
             x_upper_bound = (i+1)*slot_size
             y_lower_bound = j*slot_size
             y_upper_bound = (j+1)*slot_size
-            tmp_res[i][j],_ = dblquad(first_heatmap_function, x_lower_bound, x_upper_bound, y_lower_bound, y_upper_bound, args = (node.location[1], node.location[0]))
+            tmp_res[i][j],_ = quad(first_heatmap_function, x_lower_bound, x_upper_bound, y_lower_bound, y_upper_bound, args = (node.location[1], node.location[0]))
     first_heatmap_encode_precalculate[id] = tmp_res
 
 #Saving Part
 first_heatmap_encode_precalculate = np.array(first_heatmap_encode_precalculate)
-np.save("C:/GIT/GIT_WRSN/multi_agent_rl_wrsn/additional_files/first_heatmap.npy", first_heatmap_encode_precalculate)
+np.save("../additional_files/first_heatmap.npy", first_heatmap_encode_precalculate)
 
 #Loading part
-first_heatmap_encode_precalculate = np.load("C:/GIT/GIT_WRSN/multi_agent_rl_wrsn/additional_files/first_heatmap.npy")
+first_heatmap_encode_precalculate = np.load("../additional_files/first_heatmap.npy")
 first_heatmap_encode_precalculate = np.transpose(first_heatmap_encode_precalculate, (1, 2, 0))
 first_heatmap_encode = np.zeros((size,size), dtype = np.float64)
 sensors_energy = np.zeros((len(net.listNodes)))
@@ -121,7 +120,6 @@ for id, mc in enumerate(mcs):
     if mc.chargingTime != 0:
         mc_location_id_x = np.searchsorted(x_grid, mc.location[0], side="right") - 1
         mc_location_id_y = np.searchsorted(y_grid, mc.location[1], side='right') - 1
-
         left_id_x, right_id_x = max(0, mc_location_id_x - 2), min(size, mc_location_id_x + 3)
         left_id_y, right_id_y = max(0, mc_location_id_y - 2), min(size, mc_location_id_y + 3)
         print("CHARGING")

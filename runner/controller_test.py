@@ -20,10 +20,10 @@ class WRSN:
 
 random.seed(0)
 
-netIO = NetworkIO("physical_env/network/network_scenarios/test.yaml")
+netIO = NetworkIO("../physical_env/network/network_scenarios/test.yaml")
 env, net = netIO.makeNetwork()
 
-with open("physical_env/mc/mc_types/default.yaml", "r") as file:
+with open("../physical_env/mc/mc_types/default.yaml", "r") as file:
     mc_phy_para = yaml.safe_load(file)
  
 mcs = [MobileCharger(copy.deepcopy(net.baseStation.location), mc_phy_para) for _ in range(3)]
@@ -36,6 +36,7 @@ for id, mc in enumerate(mcs):
     mc.env = env
     mc.net = net
     mc.id = id
+    
     process = env.process(mc.operate(controller=controller))
     processes.append(process)
 env.run(until=processes[0])

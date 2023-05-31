@@ -21,7 +21,7 @@ class WRSN:
 
 random.seed(0)
 
-netIO = NetworkIO("physical_env/network/network_scenarios/test.yaml")
+netIO = NetworkIO("../physical_env/network/network_scenarios/hanoi1000n50.yaml")
 env, net = netIO.makeNetwork()
 
 node_x = [node.location[0] for node in net.listNodes]
@@ -32,4 +32,6 @@ target_y = [target.location[1] for target in net.listTargets]
 plt.scatter(np.array(node_x), np.array(node_y))
 plt.scatter(np.array([net.baseStation.location[0]]), np.array([net.baseStation.location[1]]), c="red")
 plt.scatter(np.array(target_x), np.array(target_y), c="green")
+plt.scatter(np.array(target_x[0]), np.array(target_y[0]), c="purple")
+print(target_x[0], target_y[0])
 plt.show()
