@@ -7,12 +7,12 @@ class Network:
         self.baseStation = baseStation
         self.listTargets = listTargets
         self.targets_active = [1 for _ in range(len(self.listTargets))]
-
+        self.alive = 1
         # Setting BS and Node environment and network
         baseStation.env = self.env
         baseStation.net = self
 
-        self.frame = np.array([self.baseStation.location[0], self.baseStation.location[0], self.baseStation.location[1], self.baseStation.location[1]])
+        self.frame = np.array([self.baseStation.location[0], self.baseStation.location[0], self.baseStation.location[1], self.baseStation.location[1]], np.float64)
         it = 0
         for node in self.listNodes:
             node.env = self.env
@@ -65,29 +65,29 @@ class Network:
         return
 
 
-    def operate(self, t=1, max_time=1000000):
+    def operate(self, t=1):
         
         for node in self.listNodes:
             self.env.process(node.operate(t=t))
         self.env.process(self.baseStation.operate(t=t))
-        timeout = max_time
         while True:
             yield self.env.timeout(t / 10.0)
-            timeout -= t/10.0
             self.setLevels()
-            alive = self.check_targets()
+            self.alive = self.check_targets()
             yield self.env.timeout(9.0 * t / 10.0)
-            timeout -= 9.0 * t / 10.0
-            tmp = 0
-            for node in self.listNodes:
-                if node.status == 0:
-                    tmp += 1
             if self.env.now % 100 == 1:
-                print(self.env.now, tmp)
-            if alive == 0 or timeout <= 0:
+                print(self.env.now, self.check_nodes())
+            if self.alive == 0:
                 break            
         return
 
     # If any target dies, value is set to 0
     def check_targets(self):
         return min(self.targets_active)
+    
+    def check_nodes(self):
+        tmp = 0
+        for node in self.listNodes:
+            if node.status == 0:
+                tmp += 1
+        return tmp

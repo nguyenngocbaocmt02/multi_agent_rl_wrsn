@@ -13,14 +13,15 @@ from controller.random.RandomController import RandomController
 from rl_env.WRSN import WRSN
 import matplotlib.pyplot as plt
 import seaborn as sns
-import matplotlib.pyplot as plt
 from scipy.spatial.distance import euclidean
 import pandas as pd
 
 network = WRSN(scenario_path="../physical_env/network/network_scenarios/hanoi1000n50.yaml"
                ,mc_type_path="../physical_env/mc/mc_types/default.yaml"
-               ,num_mc=3, map_size=100)
-hi = network.get_state()
-df = pd.DataFrame(hi[0])
-sns_plot = sns.heatmap(df, annot=False, fmt="d", cmap="YlGnBu")
-plt.show()
+               ,num_mc=2, map_size=100)
+controller = RandomController()
+request = network.reset()
+while not request["terminal"]:
+    print(request["agent_id"], request["prev_fitness"], request["action"], request["fitness"], request["terminal"])
+    request = network.step(request["agent_id"], controller.make_action(request["state"]))
+print(network.net.check_nodes())
