@@ -24,7 +24,7 @@ print(net.frame)
 mc0_process = env.process(mcs[0].operate_step([0.7 * (net.frame[1] - net.frame[0]) + net.frame[0], 0.8 * (net.frame[3] - net.frame[2]) + net.frame[2], 75]))
 mc1_process = env.process(mcs[1].operate_step([0.7 * (net.frame[1] - net.frame[0]) + net.frame[0], 0.8 * (net.frame[3] - net.frame[2]) + net.frame[2], 50]))   
 mc2_process = env.process(mcs[2].operate_step([0.35 * (net.frame[1] - net.frame[0]) + net.frame[0], 0.6 * (net.frame[3] - net.frame[2]) + net.frame[2], 100]))    
-net_process = env.process(net.operate(max_time=10000))
+net_process = env.process(net.operate())
 general_process = mc0_process | mc1_process | mc2_process | net_process
 env.run(until = general_process)
 print(mc0_process, mc1_process, mc2_process)
