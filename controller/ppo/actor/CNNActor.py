@@ -14,16 +14,15 @@ class CNNActor(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=2, padding=2)
         self.relu2 = nn.ReLU()
         
-        # Convolutional layer 3: input (22, 22, 32), output (10, 10, 64)
+        # Convolutional layer 3: input (22, 22, 32), output (13, 13, 64)
         self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5, stride=2, padding=2)
         self.relu3 = nn.ReLU()
         
         # Fully connected layer: input (10*10*64), output 100
-        self.fc1 = nn.Linear(in_features=10816, out_features=100)
+        self.fc1 = nn.Linear(in_features=13*13*64, out_features=100)
         self.relu4 = nn.ReLU()
-        
-        # Output layer: input 100, output 3
-        self.fc2 = nn.Linear(in_features=100, out_features=3)
+        self.mean_layer = nn.Linear(100, 3)
+        self.log_std_layer = nn.Linear(100, 3)
         self.sigmoid = nn.Sigmoid()
         
     def forward(self, x):
@@ -37,6 +36,8 @@ class CNNActor(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
         x = self.relu4(x)
-        x = self.fc2(x)
-        x = self.sigmoid(x)
-        return x
+        mean = self.mean_layer(x)
+        mean = self.sigmoid(mean)
+        log_std = self.log_std_layer(x)
+        log_std = self.sigmoid(log_std)
+        return mean, log_std

@@ -22,13 +22,13 @@ class CNNCritic(nn.Module):
         self.flatten = nn.Flatten()
         
         # Fully connected layer: input (10*10*64 + 3), output 100
-        self.fc1 = nn.Linear(in_features=10*10*64 + 3, out_features=100)
+        self.fc1 = nn.Linear(in_features=10816, out_features=100)
         self.relu4 = nn.ReLU()
         
         # Output layer: input 100, output 1
         self.fc2 = nn.Linear(in_features=100, out_features=1)
         
-    def forward(self, x1, x2):
+    def forward(self, x1):
         # Pass the input through the layers of the CNN
         x1 = self.conv1(x1)
         x1 = self.relu1(x1)
@@ -39,11 +39,10 @@ class CNNCritic(nn.Module):
         x1 = self.flatten(x1)
         
         # Concatenate the output of the CNN with the input vector
-        x = torch.cat((x1, x2), dim=1)
         
         # Pass the concatenated input through the fully connected layers
-        x = self.fc1(x)
-        x = self.relu4(x)
-        x = self.fc2(x)
+        x1 = self.fc1(x1)
+        x1 = self.relu4(x1)
+        x1 = self.fc2(x1)
         
-        return x
+        return x1

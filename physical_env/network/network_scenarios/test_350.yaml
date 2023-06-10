@@ -2,8 +2,8 @@
 node_phy_spe:
   "capacity" : 10800
   "threshold" : 540
-  "com_range": 80
-  "sen_range": 40
+  "com_range": 80.1
+  "sen_range": 40.1
   "prob_gp": 1
   # others
   "package_size" : 400.0

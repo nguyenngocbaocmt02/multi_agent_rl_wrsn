@@ -1,13 +1,13 @@
 node_phy_spe:
   capacity: 10800
-  com_range: 80
+  com_range: 80.1
   efs: 1.0e-08
   emp: 1.3e-12
   er: 0.0001
   et: 5.0e-05
   package_size: 400.0
   prob_gp: 1
-  sen_range: 40
+  sen_range: 40.1
   threshold: 540
 seed: 0
 Rc: 80
