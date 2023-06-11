@@ -6,5 +6,5 @@ alg_args:
     "gamma": 0.95
     "clip": 0.2
     "batch_size": 64
-    "n_updates_per_iteration": 5
+    "n_updates_per_iteration": 7
     "save_freq": 100

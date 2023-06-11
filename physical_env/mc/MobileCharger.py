@@ -97,7 +97,7 @@ class MobileCharger:
         yield self.env.timeout(0)
     
     def operate_step(self, phy_action):
-        print("MC " + str(self.id), "phy_action", phy_action)
+        #print("MC " + str(self.id), "phy_action", phy_action)
         destination = np.array([phy_action[0], phy_action[1]])
         chargingTime = phy_action[2]
 

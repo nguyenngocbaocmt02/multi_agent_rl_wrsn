@@ -115,11 +115,11 @@ class PPO:
 
         return batch_states, batch_actions, batch_log_probs, batch_rewards, batch_next_states
     
-    def train(self, env, max_time, total_timesteps, save_folder):
+    def train(self, env, max_time, trained_iterations, save_folder):
         t_so_far = 0 
         i_so_far = 0 
         logs = []
-        while t_so_far < total_timesteps:                                           
+        while i_so_far <= trained_iterations:                                           
             batch_states, batch_actions, batch_log_probs, batch_rewards, batch_next_states = self.roll_out(env, max_time)
             t_so_far += self.batch_size
             i_so_far += 1
