@@ -9,7 +9,7 @@ import yaml
 np.random.seed(0)
 env = WRSN(scenario_path="physical_env/network/network_scenarios/hanoi1000n50.yaml"
                ,agent_type_path="physical_env/mc/mc_types/default.yaml"
-               ,num_agent=1, map_size=100)
+               ,num_agent=2, map_size=100)
 
 with open("alg_args/ppo.yaml", 'r') as file:
     args = yaml.safe_load(file)
