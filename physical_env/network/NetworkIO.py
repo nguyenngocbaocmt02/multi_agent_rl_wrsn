@@ -18,14 +18,14 @@ class NetworkIO:
 
     def makeNetwork(self):
         net_argc = copy.deepcopy(self.net_argc)
-        node_phy_spe = net_argc["node_phy_spe"]
-        seed = net_argc["seed"]
-        np.random.seed(seed)
-        random.seed(seed)
+        self.node_phy_spe = net_argc["node_phy_spe"]
+        self.seed = net_argc["seed"]
+        np.random.seed(self.seed)
+        random.seed(self.seed)
         listNodes = []
         listTargets = []
         for tmp in net_argc["nodes"]:
-            listNodes.append(Node(location=tmp, phy_spe=copy.deepcopy(node_phy_spe)))
+            listNodes.append(Node(location=tmp, phy_spe=copy.deepcopy(self.node_phy_spe)))
         for tmp in self.net_argc["targets"]:
             listTargets.append(Target(location=tmp))
 

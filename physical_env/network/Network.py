@@ -76,9 +76,9 @@ class Network:
             self.alive = self.check_targets()
             yield self.env.timeout(9.0 * t / 10.0)
             if self.env.now % 100 == 1:
-                pass#print(self.env.now, self.check_nodes())
+                print(self.env.now, self.check_nodes())
             if self.alive == 0:
-                break            
+                break         
         return
 
     # If any target dies, value is set to 0

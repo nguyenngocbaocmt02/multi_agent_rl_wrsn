@@ -99,8 +99,9 @@ class PPO:
                 batch_states.append(request["prev_state"])
                 batch_actions.append(request["action"])
                 batch_next_states.append(request["state"])
-                batch_rewards.append((request["fitness"] - request["prev_fitness"]) / request["prev_fitness"])
+                batch_rewards.append(request["reward"])
                 batch_log_probs.append(log_probs[request["agent_id"]])
+                print(request["agent_id"], request["action"], log_probs[request["agent_id"]], request["reward"])
                 
             self.logger["ep_lens"].append(cnt)
             self.logger["ep_lifetime"].append(env.env.now)
@@ -127,8 +128,8 @@ class PPO:
             self.logger['i_so_far'] += 1
             
             for _ in range(self.n_updates_per_iteration):
-                V_est2 = torch.squeeze(self.get_value(batch_states).detach())
                 V_est1 = batch_rewards + self.gamma * torch.squeeze(self.get_value(batch_next_states).detach())
+                V_est2 = torch.squeeze(self.get_value(batch_states).detach())
                 
                 A_k =  V_est1 - V_est2       
                 A_k = (A_k - A_k.mean()) / (A_k.std() + 1e-10)
@@ -138,16 +139,19 @@ class PPO:
                 surr1 = ratios * A_k
                 surr2 = torch.clamp(ratios, 1 - self.clip, 1 + self.clip) * A_k
                 actor_loss = (-torch.min(surr1, surr2)).mean()
-                V_est1.requires_grad_()
-                V_est2.requires_grad_()
-                critic_loss = nn.MSELoss()(V_est1, V_est2)
+
                 self.optimizer_actor.zero_grad()
                 actor_loss.backward(retain_graph=True)
                 self.optimizer_actor.step()
+                self.logger['actor_losses'].append(actor_loss.detach())
+
+                V_est1.requires_grad_()
+                V_est2.requires_grad_()
+                critic_loss = nn.MSELoss()(V_est1, V_est2)
                 self.optimizer_critic.zero_grad()
                 critic_loss.backward(retain_graph=True)
                 self.optimizer_critic.step()
-                self.logger['actor_losses'].append(actor_loss.detach())
+                
                 self.logger['critic_losses'].append(critic_loss.detach())
             # Print a summary of our training so far
             logs.append(self._log_summary())

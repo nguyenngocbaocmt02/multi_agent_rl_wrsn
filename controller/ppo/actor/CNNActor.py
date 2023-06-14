@@ -7,7 +7,7 @@ class CNNActor(nn.Module):
         super(CNNActor, self).__init__()
         
         # Convolutional layer 1: input (100, 100, 3), output (48, 48, 16)
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=5, stride=2, padding=2)
+        self.conv1 = nn.Conv2d(in_channels=4, out_channels=16, kernel_size=5, stride=2, padding=2)
         self.relu1 = nn.ReLU()
         
         # Convolutional layer 2: input (48, 48, 16), output (22, 22, 32)
