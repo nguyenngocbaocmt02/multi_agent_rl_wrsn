@@ -13,6 +13,12 @@ import copy
 import shutil
 import csv
 
+def layer_init(layer, std=np.sqrt(2), bias_const=0.):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    if layer.bias is not None:
+        torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
 class PPO:
     def __init__(self, args, model_path=None):
         self.model_path = model_path
@@ -36,8 +42,8 @@ class PPO:
             'delta_t': time.time_ns()
 		}
         if model_path is None:
-            self.actor.apply(lambda x: nn.init.xavier_uniform_(x.weight) if type(x) == nn.Conv2d or type(x) == nn.Linear else None)
-            self.critic.apply(lambda x: nn.init.xavier_uniform_(x.weight) if type(x) == nn.Conv2d or type(x) == nn.Linear else None)
+            self.actor.apply(lambda x: layer_init(x) if type(x) == nn.Conv2d or type(x) == nn.Linear else None)
+            self.critic.apply(lambda x: layer_init(x) if type(x) == nn.Conv2d or type(x) == nn.Linear else None)
             self.log_file = None
         else:
             self.critic.load_state_dict(torch.load(os.path.join(model_path, "critic.pth")))
