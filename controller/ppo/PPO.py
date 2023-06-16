@@ -6,18 +6,12 @@ import time
 import random
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.distributions import MultivariateNormal
+from torch.distributions import Normal
 from controller.ppo.actor.CNNActor import CNNActor
 from controller.ppo.critic.CNNCritic import CNNCritic
 import copy
 import shutil
 import csv
-
-def layer_init(layer, std=np.sqrt(2), bias_const=0.):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    if layer.bias is not None:
-        torch.nn.init.constant_(layer.bias, bias_const)
-    return layer
 
 class PPO:
     def __init__(self, args, model_path=None):
@@ -42,8 +36,6 @@ class PPO:
             'delta_t': time.time_ns()
 		}
         if model_path is None:
-            self.actor.apply(lambda x: layer_init(x) if type(x) == nn.Conv2d or type(x) == nn.Linear else None)
-            self.critic.apply(lambda x: layer_init(x) if type(x) == nn.Conv2d or type(x) == nn.Linear else None)
             self.log_file = None
         else:
             self.critic.load_state_dict(torch.load(os.path.join(model_path, "critic.pth")))
@@ -62,18 +54,19 @@ class PPO:
             state = torch.unsqueeze(state, dim=0)
         mean, log_std = self.actor(state)
         std = log_std.exp()
-        dist = MultivariateNormal(mean, torch.diag_embed(std))
+        dist = Normal(mean, std)
         action = dist.sample()
         action_log_prob = dist.log_prob(action)
         action = torch.squeeze(action)
-        return action.detach().numpy(), action_log_prob.detach().numpy()
+        action_log_prob = torch.squeeze(action_log_prob)
+        return action.detach().numpy(), action_log_prob.sum(0).detach().numpy()
     
     def evaluate(self, batch_states, batch_actions):
         mean, log_std = self.actor(batch_states)
         std = log_std.exp()
-        dist = MultivariateNormal(mean, torch.diag_embed(std))
+        dist = Normal(mean, std)
         action_log_prob = dist.log_prob(batch_actions)
-        return action_log_prob
+        return action_log_prob.sum(1)
 
     def get_value(self, state):
         state = torch.FloatTensor(state)

@@ -1,10 +1,18 @@
 alg: "ppo"
 
 alg_args:
-    "lr_actor": 1.0e-4
-    "lr_critic": 1.0e-4
+    "seed": 0
+    "lr": 3.0e-4
     "gamma": 0.95
     "clip": 0.2
-    "batch_size": 64
+    "batch_size": 8
     "n_updates_per_iteration": 7
-    "save_freq": 100
+    "save_freq": 10
+    "gae": True
+    "norm_adv": True
+    "minibatch_size": 2
+    "ent_coef": 0.0
+    "vf_coef": 0.5
+    "gae_lambda": 0.95
+    "max_grad_norm": 0.5
+    "clip_vloss": True

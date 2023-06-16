@@ -203,12 +203,12 @@ class WRSN(gym.Env):
         return min(target_t)
     
     def get_reward(self, agent_id):
-        return self.agents_exclusive_reward[agent_id] + (self.get_network_fitness() / self.agents_prev_fitness[agent_id] - 1) 
+        return self.agents_exclusive_reward[agent_id] + (self.get_network_fitness() / self.agents_prev_fitness[agent_id] - 1)
     
     def step(self, agent_id, input_action):
         
         if agent_id is not None:
-            action = copy.deepcopy(input_action)
+            action = np.array(input_action).copy()
             action = np.clip(action, self.action_space.low, self.action_space.high)
             self.agents_process[agent_id] = self.env.process(self.agents[agent_id].operate_step(self.translate(agent_id, action)))
             self.agents_action[agent_id] = action
@@ -231,10 +231,10 @@ class WRSN(gym.Env):
                     "info": [self.net, self.agents]}
         for id, agent in enumerate(self.agents):
             if euclidean(agent.location, agent.cur_phy_action[0:2]) < agent.epsilon and agent.cur_phy_action[2] == 0:
-                return {"agent_id":id, 
+                return {"agent_id": id, 
                         "prev_state": self.agents_prev_state[id],
                         "action":self.agents_action[id], 
                         "reward": self.get_reward(id),
                         "state": self.get_state(id), 
-                        "terminal":False,
+                        "terminal": False,
                         "info": [self.net, self.agents]}

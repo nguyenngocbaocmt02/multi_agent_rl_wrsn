@@ -76,8 +76,8 @@ class Network:
             self.alive = self.check_targets()
             yield self.env.timeout(9.0 * t / 10.0)
             if self.env.now % 100 == 1:
-                print(self.env.now, self.check_nodes())
-            if self.alive == 0:
+                pass#print(self.env.now, self.check_nodes())
+            if self.alive == 0 or self.env.now >= 604800:
                 break         
         return
 

@@ -5,7 +5,7 @@ node_phy_spe:
   emp: 1.3e-12
   er: 0.0001
   et: 5.0e-05
-  package_size: 400.0
+  package_size: 2000
   prob_gp: 1
   sen_range: 40.1
   threshold: 540
