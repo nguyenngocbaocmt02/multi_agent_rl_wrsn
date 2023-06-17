@@ -9,7 +9,7 @@ from controller.random.RandomController import RandomController
 from rl_env.WRSN import WRSN
 from utils import draw_heatmap_state
 
-network = WRSN(scenario_path="physical_env/network/network_scenarios/test_200.yaml"
+network = WRSN(scenario_path="physical_env/network/network_scenarios/.yaml"
                ,agent_type_path="physical_env/mc/mc_types/default.yaml"
                ,num_agent=3, map_size=100)
 controller = RandomController()
@@ -19,6 +19,5 @@ while not request["terminal"]:
     print(request["agent_id"], request["action"], request["reward"], request["terminal"])
     action = controller.make_action(request["state"])
     request = network.step(request["agent_id"], action)
-    #draw_heatmap_state(request["state"])
     
-print(network.net.check_nodes())
+print(network.net.env.now())
