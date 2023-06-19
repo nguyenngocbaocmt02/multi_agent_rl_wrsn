@@ -8,7 +8,7 @@ from physical_env.network.NetworkIO import NetworkIO
 from physical_env.mc.MobileCharger import MobileCharger
 
 def log(net, mcs):
-    # If you want to print something, just put it here. Do not fix the core code.
+    # If you want to print something, just put it here. Do not revise the core code.
     while True:
         print(net.env.now, net.listNodes[0].energy)
         yield net.env.timeout(1.0)

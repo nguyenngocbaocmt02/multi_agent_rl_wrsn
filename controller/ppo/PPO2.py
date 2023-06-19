@@ -6,7 +6,7 @@ import time
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions import Normal
-from controller.ppo.actor.CNNActor import CNNActor
+from controller.ppo.actor.UnetActor import UNet
 from controller.ppo.critic.CNNCritic import CNNCritic
 from torch.utils.tensorboard import SummaryWriter
 import copy
@@ -29,7 +29,7 @@ class PPO:
         self.gae_lambda = args["gae_lambda"]
         self.norm_adv = args["norm_adv"]
         self.max_grad_norm = args["max_grad_norm"]
-        self.actor = CNNActor()
+        self.actor = UNet()
         self.critic = CNNCritic()
         self.optimizer = optim.Adam(self.actor.parameters(), lr=args["lr"])
 
@@ -88,14 +88,15 @@ class PPO:
         action = dist.sample()
         action_log_prob = dist.log_prob(action)
         action = torch.squeeze(action)
-        return action.detach().numpy(), action_log_prob.sum(1).detach().numpy()
+        action_log_prob = torch.squeeze(action_log_prob)
+        return action.detach().numpy(), action_log_prob.sum().detach().numpy()
     
     def evaluate(self, batch_states, batch_actions):
         mean, log_std = self.actor(batch_states)
         std = log_std.exp()
         dist = Normal(mean, std)
         action_log_prob = dist.log_prob(batch_actions)
-        return action_log_prob.sum(1), dist.entropy()
+        return action_log_prob.sum((1, 2, 3)), dist.entropy()
 
     def get_value(self, state):
         state = torch.FloatTensor(state)
@@ -134,7 +135,7 @@ class PPO:
                 t += 1
                 cnt[request["agent_id"]] += 1
                 states[request["agent_id"]].append(request["prev_state"])
-                actions[request["agent_id"]].append(request["action"])
+                actions[request["agent_id"]].append(request["input_action"])
                 next_states[request["agent_id"]].append(request["state"])
                 rewards[request["agent_id"]].append(request["reward"])
                 log_probs[request["agent_id"]].append(log_probs_pre[request["agent_id"]])

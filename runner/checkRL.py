@@ -13,19 +13,20 @@ from utils import draw_heatmap_state
 def log(net, mcs):
     # If you want to print something, just put it here. Do not fix the core code.
     while True:
-        print(net.env.now, net.listNodes[0].energy)
+        if net.env.now % 100 == 0:
+            print(net.env.now)
         yield net.env.timeout(1.0)
 
 network = WRSN(scenario_path="physical_env/network/network_scenarios/hanoi1000n50.yaml"
                ,agent_type_path="physical_env/mc/mc_types/default.yaml"
-               ,num_agent=3, map_size=100)
+               ,num_agent=3, map_size=100,density_map=True)
 controller = RandomController()
-network.env.process(log(network.net, network.agents))
-request = network.reset()
 
+request = network.reset()
+network.env.process(log(network.net, network.agents))   
 while not request["terminal"]:
     print(request["agent_id"], request["action"], request["reward"], request["terminal"])
-    action = controller.make_action(request["state"])
-    request = network.step(request["agent_id"], action)
+    action, std = controller.make_action(request["agent_id"], request["state"], request["info"], network)
+    request = network.step(request["agent_id"], action.squeeze().detach().numpy())
     
 print(network.net.env.now)

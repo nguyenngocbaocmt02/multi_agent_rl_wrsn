@@ -23,8 +23,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 env = WRSN(scenario_path="physical_env/network/network_scenarios/hanoi1000n50.yaml"
                ,agent_type_path="physical_env/mc/mc_types/default.yaml"
-               ,num_agent=2, map_size=100)
-env.env.process(log(env.net, env.agents))
+               ,num_agent=3, map_size=100, density_map=True)
 
 with open("alg_args/ppo.yaml", 'r') as file:
     args = yaml.safe_load(file)

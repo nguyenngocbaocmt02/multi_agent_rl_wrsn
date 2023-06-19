@@ -11,6 +11,7 @@ from physical_env.network.NetworkIO import NetworkIO
 from physical_env.mc.MobileCharger import MobileCharger
 from scipy.integrate import quad, dblquad
 import matplotlib.pyplot as plt
+from scipy.optimize import minimize
 
 def func(x, hX): 
     km = x ** 2 / (-2 * hX ** 2) 
@@ -18,14 +19,17 @@ def func(x, hX):
 
     
 class WRSN(gym.Env):
-    def __init__(self, scenario_path, agent_type_path, num_agent, map_size=100):
+    def __init__(self, scenario_path, agent_type_path, num_agent, map_size=100, warm_up_time = 100, density_map=False):
         self.scenario_io = NetworkIO(scenario_path)
         with open(agent_type_path, "r") as file:
             self.agent_phy_para = yaml.safe_load(file)
         self.num_agent = num_agent
         self.map_size = map_size
-        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(3, 100, 100,), dtype=np.float64)
+        self.density_map = density_map
+        self.warm_up_time = warm_up_time
+        self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(4, self.map_size, self.map_size,), dtype=np.float64)
         self.action_space = spaces.Box(low=0.0, high=1.0, shape=(3,), dtype=np.float64)
+        self.agents_input_action = [None for _ in range(num_agent)]
         self.agents_process = [None for _ in range(num_agent)]
         self.agents_action = [None for _ in range(num_agent)]
         self.agents_prev_state = [None for _ in range(num_agent)]
@@ -35,15 +39,14 @@ class WRSN(gym.Env):
 
     def reset(self):
         self.env, self.net = self.scenario_io.makeNetwork()
-        self.net_process = self.env.process(self.net.operate())
-        self.reward_update_process = self.env.process(self.update_reward())
+        self.net_process = self.env.process(self.net.operate()) & self.env.process(self.update_reward())
         self.agents = [MobileCharger(copy.deepcopy(self.net.baseStation.location), self.agent_phy_para) for _ in range(self.num_agent)]
         for id, agent in enumerate(self.agents):
             agent.env = self.env
             agent.net = self.net
             agent.id = id
             agent.cur_phy_action = [self.net.baseStation.location[0], self.net.baseStation.location[1], 0]
-        self.env.run(until=100)
+        self.env.run(until=self.warm_up_time)
         if self.net.alive == 1:
             tmp_terminal = False
         else:
@@ -60,6 +63,7 @@ class WRSN(gym.Env):
             if euclidean(agent.location, agent.cur_phy_action[0:2]) < agent.epsilon and agent.cur_phy_action[2] == 0:
                 return {"agent_id":id, 
                         "prev_state": self.agents_prev_state[id],
+                        "input_action": self.agents_input_action[id],
                         "action":self.agents_action[id], 
                         "reward": 0.0,
                         "state": self.agents_prev_state[id],
@@ -67,6 +71,7 @@ class WRSN(gym.Env):
                         "info": [self.net, self.agents]}
         return {"agent_id":None, 
                 "prev_state": None,
+                "input_action": None,
                 "action": None,
                 "reward": None,
                 "state": None,
@@ -109,9 +114,10 @@ class WRSN(gym.Env):
     
     def get_state(self, agent_id):
         agent = self.agents[agent_id]
-        x = np.arange(0.0, 1.0,  1 / self.map_size)
-        y = np.arange(0.0, 1.0,  1 / self.map_size)
-        xx, yy = np.meshgrid(x, y)
+        unit = 1.0 / self.map_size
+        x = np.arange(unit / 2, 1.0,  unit)
+        y = np.arange(unit / 2, 1.0,  unit)
+        yy, xx = np.meshgrid(x, y)
         
         map_1 = np.zeros_like(xx)
         for node in self.net.listNodes:
@@ -203,15 +209,74 @@ class WRSN(gym.Env):
         return min(target_t)
     
     def get_reward(self, agent_id):
-        return self.agents_exclusive_reward[agent_id] + (self.get_network_fitness() / self.agents_prev_fitness[agent_id] - 1)
+        return self.agents_exclusive_reward[agent_id] + (self.get_network_fitness() - self.agents_prev_fitness[agent_id]) / self.net.max_time
+    
+    def density_map_to_action(self, dmap, id):
+        net = self.net
+        agent = self.agents[id]
+        unit = 1.0 / self.map_size
+        
+        max_index = np.unravel_index(np.argmax(dmap), dmap.shape)
+        
+        lower_bound = self.up_mapping([(max_index[0] + 0.5 ) * unit - agent.chargingRange / (net.frame[1] - net.frame[0]), (max_index[1] + 0.5) * unit - agent.chargingRange / (net.frame[3] - net.frame[2])])
+        upper_bound = self.up_mapping([(max_index[0] + 0.5 ) * unit + agent.chargingRange / (net.frame[1] - net.frame[0]), (max_index[1] + 0.5) * unit + agent.chargingRange / (net.frame[3] - net.frame[2])])
+        bounds = [(lower_bound[0], upper_bound[0]), (lower_bound[1], upper_bound[1])]
+        def objective_function(loc):
+            loc = np.array(loc)
+            res = 0
+            for node in net.listNodes:
+                if node.status == 0:
+                    continue
+                res += int(euclidean(loc, node.location) <= agent.chargingRange) * node.energyCS * agent.alpha / ((euclidean(loc, node.location) + agent.beta) ** 2)
+            #print(loc, -res)
+            return -res
+        
+        result = minimize(objective_function, [(lower_bound[0] + upper_bound[0]) / 2, (lower_bound[1] + upper_bound[1]) / 2], bounds=bounds, method='L-BFGS-B')
+        #print(result)
+        '''
+        for node in net.listNodes:
+            if euclidean(result.x, node.location) <= agent.chargingRange:
+                print(node.id, euclidean(result.x, node.location), node.energyCS)
+        node_x = [node.location[0] for node in net.listNodes]
+        node_y = [node.location[1] for node in net.listNodes]
+        target_x = [target.location[0] for target in net.listTargets]
+        target_y = [target.location[1] for target in net.listTargets]
+        plt.scatter(np.array(node_x), np.array(node_y))
+        plt.scatter(np.array([net.baseStation.location[0]]), np.array([net.baseStation.location[1]]), c="red")
+        plt.scatter(np.array(target_x), np.array(target_y), c="green")
+        plt.scatter(np.array([result.x[0]]), np.array([result.x[1]]), c="purple")
+        # Draw the rectangle boundaries
+        lower_x = bounds[0][0]
+        upper_x = bounds[0][1]
+        lower_y = bounds[1][0]
+        upper_y = bounds[1][1]
+        # Draw the rectangle boundaries using plt.plot
+        plt.plot([lower_x, upper_x], [lower_y, lower_y], color='red')  # Bottom side
+        plt.plot([lower_x, upper_x], [upper_y, upper_y], color='red')  # Top side
+        plt.plot([lower_x, lower_x], [lower_y, upper_y], color='red')  # Left side
+        plt.plot([upper_x, upper_x], [lower_y, upper_y], color='red')  # Right side
+        # Show the plot
+        plt.show()
+        '''
+        prob = np.copy(dmap)
+        prob = prob / np.sum(prob)
+        tmp_loc = self.down_mapping(np.array(result.x))
+        return np.array([tmp_loc[0], tmp_loc[1], prob[max_index[0]][max_index[1]]])
     
     def step(self, agent_id, input_action):
-        
         if agent_id is not None:
-            action = np.array(input_action).copy()
+            action = np.array(input_action)
+            self.agents_input_action[agent_id] = action.copy()
+            if self.density_map:
+                if not (np.all((action >= 0) & (action <= 1)) and np.isclose(np.sum(action), 1)):
+                    action = np.exp(action)
+                    action = action / (np.sum(action) + self.agents[agent_id].epsilon)
+                action = self.density_map_to_action(action, agent_id)
+
             action = np.clip(action, self.action_space.low, self.action_space.high)
-            self.agents_process[agent_id] = self.env.process(self.agents[agent_id].operate_step(self.translate(agent_id, action)))
+
             self.agents_action[agent_id] = action
+            self.agents_process[agent_id] = self.env.process(self.agents[agent_id].operate_step(self.translate(agent_id, action)))
             self.agents_prev_state[agent_id] = self.get_state(agent_id)
             self.agents_prev_fitness[agent_id] = self.get_network_fitness()
             self.agents_exclusive_reward[agent_id] = 0
@@ -224,6 +289,7 @@ class WRSN(gym.Env):
         if self.net.alive == 0:
             return {"agent_id":None, 
                     "prev_state": None,
+                    "input_action": None,
                     "action":None, 
                     "reward": None,
                     "state": None,
@@ -233,6 +299,7 @@ class WRSN(gym.Env):
             if euclidean(agent.location, agent.cur_phy_action[0:2]) < agent.epsilon and agent.cur_phy_action[2] == 0:
                 return {"agent_id": id, 
                         "prev_state": self.agents_prev_state[id],
+                        "input_action":self.agents_input_action[id], 
                         "action":self.agents_action[id], 
                         "reward": self.get_reward(id),
                         "state": self.get_state(id), 

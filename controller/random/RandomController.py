@@ -1,11 +1,15 @@
 import random
 import numpy as np
+from scipy.optimize import minimize, basinhopping, differential_evolution
+from scipy.spatial.distance import euclidean
+from controller.ppo.actor.UnetActor import UNet
+import cvxpy as cp
+import matplotlib.pyplot as plt
+import torch
 class RandomController:
     def __init__(self):
-        pass
+        self.unet = UNet()
 
-    def make_action(self, state):
-        max_index = np.unravel_index(np.argmax(state[0]), state[0].shape)
-        return [1 / 100 * max_index[1] + 1/200, 1 / 200 + 1 / 100 * max_index[0],random.random() / 4]
-    
+    def make_action(self, id, state, info, wrsn):
+        return self.unet(torch.FloatTensor(state).unsqueeze(0))
 

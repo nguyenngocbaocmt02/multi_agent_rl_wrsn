@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 class Network:
-    def __init__(self, env, listNodes, baseStation, listTargets):
+    def __init__(self, env, listNodes, baseStation, listTargets, max_time):
         self.env = env
         self.listNodes = listNodes
         self.baseStation = baseStation
@@ -11,6 +11,7 @@ class Network:
         # Setting BS and Node environment and network
         baseStation.env = self.env
         baseStation.net = self
+        self.max_time = max_time
 
         self.frame = np.array([self.baseStation.location[0], self.baseStation.location[0], self.baseStation.location[1], self.baseStation.location[1]], np.float64)
         it = 0
@@ -75,7 +76,7 @@ class Network:
             self.setLevels()
             self.alive = self.check_targets()
             yield self.env.timeout(9.0 * t / 10.0)
-            if self.alive == 0 or self.env.now >= 604800:
+            if self.alive == 0 or self.env.now >= self.max_time:
                 break         
         return
 

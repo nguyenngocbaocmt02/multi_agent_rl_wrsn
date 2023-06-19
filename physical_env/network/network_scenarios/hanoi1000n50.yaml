@@ -5,13 +5,14 @@ node_phy_spe:
   emp: 1.3e-12
   er: 0.0001
   et: 5.0e-05
-  package_size: 2000
+  package_size: 400
   prob_gp: 1
   sen_range: 40.1
   threshold: 540
 seed: 0
-Rc: 80
-Rs: 40
+max_time: 604800
+Rc: 80.1
+Rs: 40.1
 base_station:
 - 500
 - 500
