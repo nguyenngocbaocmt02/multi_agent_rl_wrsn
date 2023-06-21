@@ -24,7 +24,7 @@ class Network:
             self.frame[1] = max(self.frame[1], node.location[0])
             self.frame[2] = min(self.frame[2], node.location[1])
             self.frame[3] = max(self.frame[3], node.location[1])
-
+        self.nodes_density = len(self.listNodes) / ((self.frame[1] - self.frame[0]) * (self.frame[3] - self.frame[2]))
         it = 0
 
         # Setting name for each target

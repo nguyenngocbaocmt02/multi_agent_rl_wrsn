@@ -14,8 +14,10 @@ import shutil
 import csv
 
 class PPO:
-    def __init__(self, args, model_path=None):
+    def __init__(self, args, device, model_path=None):
+        print(device)
         self.model_path = model_path
+        self.device = device
         self.gamma = args["gamma"]
         self.clip = args["clip"]
         self.batch_size = args["batch_size"]
@@ -56,27 +58,28 @@ class PPO:
                 self.logger['i_so_far'] = int(last_row[0])
 
     def cal_rt_adv(self, states, rewards, next_states, terminals):
-        values = self.get_value((states))
-        next_values = self.get_value(next_states)
+        with torch.no_grad():
+            values = self.get_value((states))
+            next_values = self.get_value(next_states)
 
-        if self.gae:
-            advantages = torch.zeros_like(rewards)
-            lastgaelam = 0
-            for t in reversed(range(len(rewards))): 
-                delta = rewards[t] + self.gamma * next_values[t] * int(terminals[t]) - values[t]
-                lastgaelam = delta + self.gamma * self.gae_lambda * int(terminals[t]) * lastgaelam
-                advantages[t] = lastgaelam
-            returns = advantages + values
-        else:
-            returns = torch.zeros_like(rewards)
-            for t in reversed(range(len(rewards))):
-                if t == len(rewards):
-                    next_return = next_values[t]
-                else:
-                    next_return = returns[t + 1]
-                returns[t] = rewards[t] + self.gamma * terminals[t] * next_return
-            advantages = returns - values
-        return returns, advantages, values
+            if self.gae:
+                advantages = torch.zeros_like(rewards)
+                lastgaelam = 0
+                for t in reversed(range(len(rewards))): 
+                    delta = rewards[t] + self.gamma * next_values[t] * int(terminals[t]) - values[t]
+                    lastgaelam = delta + self.gamma * self.gae_lambda * int(terminals[t]) * lastgaelam
+                    advantages[t] = lastgaelam
+                returns = advantages + values
+            else:
+                returns = torch.zeros_like(rewards)
+                for t in reversed(range(len(rewards))):
+                    if t == len(rewards):
+                        next_return = next_values[t]
+                    else:
+                        next_return = returns[t + 1]
+                    returns[t] = rewards[t] + self.gamma * terminals[t] * next_return
+                advantages = returns - values
+            return returns, advantages, values
     
     def get_action(self, state):
         state = torch.FloatTensor(state)
@@ -149,24 +152,32 @@ class PPO:
                 batch_actions.extend(actions[id])
                 batch_log_probs.extend(log_probs[id])
                 batch_next_states.extend(next_states[id])
-                batch_advantages.extend(advantages)
                 batch_rewards.extend(rewards[id])
+                batch_advantages.extend(advantages)
                 batch_returns.extend(returns)
                 batch_values.extend(values)
 
             self.logger["ep_lens"].append(cnt)
             self.logger["ep_lifetime"].append(env.env.now)
-            self.logger["rewards"].append(copy.deepcopy(batch_rewards))
-        random_indices = np.random.choice(len(batch_states), size=self.batch_size, replace=False)
-        batch_rewards = torch.FloatTensor(np.array(batch_rewards)[random_indices])
-        batch_states = torch.FloatTensor(np.array(batch_states)[random_indices])
-        batch_actions = torch.FloatTensor(np.array(batch_actions)[random_indices])
-        batch_next_states = torch.FloatTensor(np.array(batch_next_states)[random_indices])
-        batch_log_probs = torch.FloatTensor(np.array(batch_log_probs)[random_indices])
-        batch_returns = torch.stack([batch_returns[_] for _ in random_indices])
-        batch_advantages = torch.stack([batch_advantages[_] for _ in random_indices])
-        batch_values = torch.stack([batch_values[_] for _ in random_indices])
-        return batch_states, batch_actions, batch_log_probs, batch_rewards, batch_next_states, batch_advantages, batch_returns, batch_values
+            self.logger["rewards"].append(np.array(batch_rewards))
+        
+        mean = np.mean(batch_rewards)
+        # Calculate the absolute differences between elements and the 50th percentile
+        abs_diff = np.abs(batch_rewards - mean)
+        indices = np.argsort(abs_diff)
+        selected_num = int(self.batch_size / 2.0)
+        random_num = self.batch_size - selected_num
+        indices = np.concatenate((indices[-selected_num:], np.random.choice(len(batch_rewards) - selected_num, size=random_num, replace=False)))
+
+        batch_rewards = torch.FloatTensor(np.array(batch_rewards)[indices])
+        batch_states = torch.FloatTensor(np.array(batch_states)[indices])
+        batch_actions = torch.FloatTensor(np.array(batch_actions)[indices])
+        batch_next_states = torch.FloatTensor(np.array(batch_next_states)[indices])
+        batch_log_probs = torch.FloatTensor(np.array(batch_log_probs)[indices])
+        batch_returns = torch.stack([batch_returns[_] for _ in indices])
+        batch_advantages = torch.stack([batch_advantages[_] for _ in indices])
+        batch_values = torch.stack([batch_values[_] for _ in indices])
+        return batch_states.to(self.device), batch_actions.to(self.device), batch_log_probs.to(self.device), batch_rewards.to(self.device), batch_next_states.to(self.device), batch_advantages.to(self.device), batch_returns.to(self.device), batch_values.to(self.device)
     
     def train(self, env, trained_iterations, save_folder):
         writer = SummaryWriter(f"runs/{1}")
@@ -264,6 +275,7 @@ class PPO:
         avg_ep_lens = np.mean(self.logger['ep_lens'])
         avg_ep_lifetime = np.mean([np.sum(ep_rews) for ep_rews in self.logger['ep_lifetime']])
         avg_loss = np.mean([losses.mean() for losses in self.logger['losses']])
+        avg_rew = np.mean([rewards.mean() for rewards in self.logger['rewards']])
 
         delta_t = self.logger['delta_t']
         self.logger['delta_t'] = time.time_ns()
@@ -274,13 +286,15 @@ class PPO:
         avg_ep_lens = str(round(avg_ep_lens, 2))
         avg_ep_lifetime = str(round(avg_ep_lifetime, 2))
         avg_loss = str(round(avg_loss, 5))
+        avg_rew = str(round(avg_rew, 5))
 
         # Print logging statements
         print(flush=True)
         print(f"-------------------- Iteration #{i_so_far} --------------------", flush=True)
         print(f"Average Episodic Length: {avg_ep_lens}", flush=True)
         print(f"Average Episodic Lifetime: {avg_ep_lifetime}", flush=True)
-        print(f"Average Actor Loss: {avg_loss}", flush=True)
+        print(f"Average Loss: {avg_loss}", flush=True)
+        print(f"Average Reward: {avg_rew}", flush=True)
         print(f"Timesteps So Far: {t_so_far}", flush=True)
         print(f"Iteration took: {delta_t} secs", flush=True)
         print(f"------------------------------------------------------", flush=True)
@@ -290,4 +304,4 @@ class PPO:
         self.logger['ep_lens'] = []
         self.logger['ep_lifetime'] = []  
         self.logger['losses'] = []
-        return [i_so_far, t_so_far, avg_ep_lens, avg_ep_lifetime, avg_loss, delta_t]
+        return [i_so_far, t_so_far, avg_ep_lens, avg_ep_lifetime, avg_loss, avg_rew, delta_t]

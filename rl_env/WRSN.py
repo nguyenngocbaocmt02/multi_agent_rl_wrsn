@@ -27,6 +27,7 @@ class WRSN(gym.Env):
         self.map_size = map_size
         self.density_map = density_map
         self.warm_up_time = warm_up_time
+        self.epsilon = 1e-9
         self.observation_space = spaces.Box(low=0.0, high=1.0, shape=(4, self.map_size, self.map_size,), dtype=np.float64)
         self.action_space = spaces.Box(low=0.0, high=1.0, shape=(3,), dtype=np.float64)
         self.agents_input_action = [None for _ in range(num_agent)]
@@ -46,6 +47,9 @@ class WRSN(gym.Env):
             agent.net = self.net
             agent.id = id
             agent.cur_phy_action = [self.net.baseStation.location[0], self.net.baseStation.location[1], 0]
+        self.moving_time_max = (euclidean(np.array([self.net.frame[0], self.net.frame[2]]), np.array([self.net.frame[1], self.net.frame[3]]))) / self.agent_phy_para["velocity"]
+        self.charging_time_max = (self.scenario_io.node_phy_spe["capacity"] - self.scenario_io.node_phy_spe["threshold"]) / (self.agent_phy_para["alpha"] / (self.agent_phy_para["beta"] ** 2))
+        self.avg_nodes_agent = (self.net.nodes_density * np.pi * (self.agent_phy_para["charging_range"] ** 2))
         self.env.run(until=self.warm_up_time)
         if self.net.alive == 1:
             tmp_terminal = False
@@ -60,7 +64,7 @@ class WRSN(gym.Env):
             self.agents_exclusive_reward[id] = 0.0  
 
         for id, agent in enumerate(self.agents):
-            if euclidean(agent.location, agent.cur_phy_action[0:2]) < agent.epsilon and agent.cur_phy_action[2] == 0:
+            if euclidean(agent.location, agent.cur_phy_action[0:2]) < self.epsilon and agent.cur_phy_action[2] == 0:
                 return {"agent_id":id, 
                         "prev_state": self.agents_prev_state[id],
                         "input_action": self.agents_input_action[id],
@@ -91,23 +95,34 @@ class WRSN(gym.Env):
     def translate(self, agent_id, action):
         return np.array([action[0] * (self.net.frame[1] - self.net.frame[0]) + self.net.frame[0],
                 action[1] * (self.net.frame[3] - self.net.frame[2]) + self.net.frame[2],
-                (self.scenario_io.node_phy_spe["capacity"] - self.scenario_io.node_phy_spe["threshold"]) /                 
-                (self.agents[agent_id].alpha / (self.agents[agent_id].beta) ** 2) * action[2]])
+                self.charging_time_max * action[2]])
     
     def update_reward(self):
         while True:
+            priority = np.array([(node.energyCS / (node.energy - node.threshold + self.epsilon)) if node.status != 0 else 0 for node in self.net.listNodes])
+            mean = np.mean(priority)
+            std = np.std(priority)
+            if std == 0:
+                std = self.epsilon
+            # Standardize the priorities
+            priority = (priority - mean) / std
+            priority = np.exp(priority)
+            tmp_sum = np.sum(priority)
+            if tmp_sum == 0:
+                tmp_sum = self.epsilon
+            priority = priority / tmp_sum
+
             for agent in self.agents:
                 if agent.status == 0:
                     continue
-                upper_time = (self.scenario_io.node_phy_spe["capacity"] - self.scenario_io.node_phy_spe["threshold"]) \
-                 / (agent.alpha / (agent.beta ** 2))
                 if agent.cur_action_type == "charging":
                     incentive = 0
                     for node in agent.connected_nodes:
                         if node.status == 1:
-                            cs_term = node.energyCS / (agent.alpha / (agent.beta ** 2))
-                            charge_term = (agent.beta ** 2) / ((euclidean(node.location, agent.location) + agent.beta) ** 2) / (upper_time) 
-                            incentive +=  cs_term * charge_term
+                            chargingRate = (agent.alpha) / ((euclidean(node.location, agent.location) + agent.beta) ** 2)
+                            energy_no_charge = min(node.energy - node.energyCS, node.threshold)
+                            energy_with_charge = max(node.energy - node.energyCS + chargingRate, node.capacity)
+                            incentive += priority[node.id] * (energy_with_charge - energy_no_charge) / ((agent.alpha) / (agent.beta ** 2))
                     self.agents_exclusive_reward[agent.id] += incentive
             yield self.env.timeout(1.0)
             
@@ -152,9 +167,7 @@ class WRSN(gym.Env):
             yy_coor = yy - coor[1]
             hX = another.chargingRange / (self.net.frame[1] - self.net.frame[0])
             hY = another.chargingRange / (self.net.frame[3] - self.net.frame[2])
-            upper_time = (self.scenario_io.node_phy_spe["capacity"] - self.scenario_io.node_phy_spe["threshold"]) \
-            / (another.alpha / (another.beta ** 2))
-            pdf = (another.cur_phy_action[2] / upper_time) * func(xx_coor, hX) * func(yy_coor, hY)
+            pdf = (another.cur_phy_action[2] / self.charging_time_max) * func(xx_coor, hX) * func(yy_coor, hY)
             map_3 += pdf
 
         map_4 = np.zeros_like(xx)
@@ -168,9 +181,7 @@ class WRSN(gym.Env):
             yy_coor = yy - coor[1]
             hX = another.chargingRange / (self.net.frame[1] - self.net.frame[0])
             hY = another.chargingRange / (self.net.frame[3] - self.net.frame[2])
-            upper_time = (self.scenario_io.node_phy_spe["capacity"] - self.scenario_io.node_phy_spe["threshold"]) \
-            / (another.alpha / (another.beta ** 2))
-            pdf = func(xx_coor, hX) * func(yy_coor, hY) * (euclidean(another.location, np.array([another.cur_phy_action[0], agent.cur_phy_action[1]])) / another.velocity) / upper_time
+            pdf = func(xx_coor, hX) * func(yy_coor, hY) * (euclidean(another.location, np.array([another.cur_phy_action[0], agent.cur_phy_action[1]])) / another.velocity) / self.moving_time_max
             map_4 += pdf
         return np.stack((map_1, map_2, map_3, map_4))
     
@@ -206,10 +217,14 @@ class WRSN(gym.Env):
         for node in self.net.listNodes:
             for target in node.listTargets:
                 target_t[target.id] = max(target_t[target.id], node_t[node.id])
-        return min(target_t)
+        return np.array(target_t)
     
     def get_reward(self, agent_id):
-        return self.agents_exclusive_reward[agent_id] + (self.get_network_fitness() - self.agents_prev_fitness[agent_id]) / self.net.max_time
+        prev_fitness = self.agents_prev_fitness[agent_id]
+        fitness = self.get_network_fitness()
+        term_all = np.min(fitness) - np.min(prev_fitness)
+        term_exclusive = self.agents_exclusive_reward[agent_id] / self.avg_nodes_agent
+        return ((term_all * 0.8 + 0.2 * term_exclusive) / (self.charging_time_max + self.moving_time_max))
     
     def density_map_to_action(self, dmap, id):
         net = self.net
@@ -227,7 +242,7 @@ class WRSN(gym.Env):
             for node in net.listNodes:
                 if node.status == 0:
                     continue
-                res += int(euclidean(loc, node.location) <= agent.chargingRange) * node.energyCS * agent.alpha / ((euclidean(loc, node.location) + agent.beta) ** 2)
+                res += int(euclidean(loc, node.location) <= agent.chargingRange) * (node.energyCS / (node.energy - node.threshold)) * agent.alpha / ((euclidean(loc, node.location) + agent.beta) ** 2)
             #print(loc, -res)
             return -res
         
@@ -259,6 +274,14 @@ class WRSN(gym.Env):
         plt.show()
         '''
         prob = np.copy(dmap)
+        flat_prob = prob.flatten()
+        # Calculate the threshold value
+        threshold = np.percentile(flat_prob, 99.9)
+        # Set elements below the threshold to zero
+        flat_prob[flat_prob < threshold] = 0
+        # Reshape the flattened array back to the original shape
+        prob = flat_prob.reshape(prob.shape)
+
         prob = prob / np.sum(prob)
         tmp_loc = self.down_mapping(np.array(result.x))
         return np.array([tmp_loc[0], tmp_loc[1], prob[max_index[0]][max_index[1]]])
@@ -270,7 +293,7 @@ class WRSN(gym.Env):
             if self.density_map:
                 if not (np.all((action >= 0) & (action <= 1)) and np.isclose(np.sum(action), 1)):
                     action = np.exp(action)
-                    action = action / (np.sum(action) + self.agents[agent_id].epsilon)
+                    action = action / (np.sum(action) + self.epsilon)
                 action = self.density_map_to_action(action, agent_id)
 
             action = np.clip(action, self.action_space.low, self.action_space.high)
@@ -296,7 +319,7 @@ class WRSN(gym.Env):
                     "terminal":True,
                     "info": [self.net, self.agents]}
         for id, agent in enumerate(self.agents):
-            if euclidean(agent.location, agent.cur_phy_action[0:2]) < agent.epsilon and agent.cur_phy_action[2] == 0:
+            if euclidean(agent.location, agent.cur_phy_action[0:2]) < self.epsilon and agent.cur_phy_action[2] == 0:
                 return {"agent_id": id, 
                         "prev_state": self.agents_prev_state[id],
                         "input_action":self.agents_input_action[id], 

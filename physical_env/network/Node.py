@@ -68,7 +68,7 @@ class Node:
             self.energy = min(self.energy + self.energyRR * t * 0.5, self.capacity)
 
             len_log = len(self.log)
-            if len_log < 50:
+            if len_log < 10:
                 self.log.append(self.log_energy)
                 self.energyCS = (self.energyCS * len_log + self.log_energy) / (len_log + 1)
             else:

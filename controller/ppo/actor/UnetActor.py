@@ -70,12 +70,12 @@ class UNet(nn.Module):
         self.out_mean = layer_init(OutConv(64, 1), std=0.1)
         self.out_log_std = layer_init(OutConv(64, 1), std=0.1)
 
-    def forward(self, x):
-        x1 = self.inc(x)
+    def forward(self, input):
+        x1 = self.inc(input)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
-        x = self.up1(x3, x2)
-        x = self.up2(x, x1)
-        mean = self.out_mean(x)
-        log_std = self.out_log_std(x)
+        out1 = self.up1(x3, x2)
+        out2 = self.up2(out1, x1)
+        mean = self.out_mean(out2)
+        log_std = self.out_log_std(out2)
         return mean, log_std

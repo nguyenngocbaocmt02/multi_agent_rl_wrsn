@@ -27,5 +27,5 @@ env = WRSN(scenario_path="physical_env/network/network_scenarios/hanoi1000n50.ya
 
 with open("alg_args/ppo.yaml", 'r') as file:
     args = yaml.safe_load(file)
-controller = PPO(args['alg_args'])
+controller = PPO(args['alg_args'], device)
 controller.train(env, 1000, save_folder="save_model/ppo")
