@@ -6,7 +6,7 @@ from utils import layer_init
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ConvBlock, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv = layer_init(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
 
@@ -51,7 +51,7 @@ class Up(nn.Module):
 class OutConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(OutConv, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.conv = layer_init(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1), std=0.1)
 
     def forward(self, x):
         x = self.conv(x)
@@ -62,13 +62,13 @@ class UNet(nn.Module):
     def __init__(self):
         super(UNet, self).__init__()
 
-        self.inc = layer_init(ConvBlock(4, 64))
-        self.down1 = layer_init(Down(64, 128))
-        self.down2 = layer_init(Down(128, 256))
-        self.up1 = layer_init(Up(384, 128))
-        self.up2 = layer_init(Up(192, 64))
-        self.out_mean = layer_init(OutConv(64, 1), std=0.1)
-        self.out_log_std = layer_init(OutConv(64, 1), std=0.1)
+        self.inc = ConvBlock(4, 64)
+        self.down1 = Down(64, 128)
+        self.down2 = Down(128, 256)
+        self.up1 = Up(384, 128)
+        self.up2 = Up(192, 64)
+        self.out_mean = OutConv(64, 1)
+        self.log_std = nn.Parameter(torch.zeros((1,1,100,100)))
 
     def forward(self, input):
         x1 = self.inc(input)
@@ -77,5 +77,4 @@ class UNet(nn.Module):
         out1 = self.up1(x3, x2)
         out2 = self.up2(out1, x1)
         mean = self.out_mean(out2)
-        log_std = self.out_log_std(out2)
-        return mean, log_std
+        return mean.squeeze(), self.log_std.expand_as(mean).squeeze()

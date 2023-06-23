@@ -5,13 +5,14 @@ import torch.nn as nn
 import time
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.distributions import Normal
+from torch.distributions.normal import Normal
 from controller.ppo.actor.UnetActor import UNet
 from controller.ppo.critic.CNNCritic import CNNCritic
 from torch.utils.tensorboard import SummaryWriter
 import copy
 import shutil
 import csv
+from torchviz import make_dot
 
 class PPO:
     def __init__(self, args, device, model_path=None):
@@ -31,9 +32,8 @@ class PPO:
         self.gae_lambda = args["gae_lambda"]
         self.norm_adv = args["norm_adv"]
         self.max_grad_norm = args["max_grad_norm"]
-        self.actor = UNet()
-        self.critic = CNNCritic()
-        self.optimizer = optim.Adam(self.actor.parameters(), lr=args["lr"])
+        self.actor = UNet().to(self.device)
+        self.critic = CNNCritic().to(self.device)
 
         self.logger = {
             'i_so_far': 0,          # iterations so far
@@ -49,6 +49,8 @@ class PPO:
         else:
             self.critic.load_state_dict(torch.load(os.path.join(model_path, "critic.pth")))
             self.actor.load_state_dict(torch.load(os.path.join(model_path, "actor.pth")))
+            self.critic.to(self.device)
+            self.actor.to(self.device)
             self.log_file = os.path.join(model_path, "log.csv")
             with open(self.log_file, 'r') as file:
                 reader = csv.reader(file)
@@ -56,6 +58,10 @@ class PPO:
                 last_row = rows[-1] if rows else []
                 self.logger['t_so_far'] = int(last_row[1])
                 self.logger['i_so_far'] = int(last_row[0])
+
+        parameters = list(self.actor.parameters()) + list(self.critic.parameters())
+        # Create optimizer for combined parameters
+        self.optimizer = optim.Adam(parameters, lr=args["lr"])
 
     def cal_rt_adv(self, states, rewards, next_states, terminals):
         with torch.no_grad():
@@ -81,8 +87,8 @@ class PPO:
                 advantages = returns - values
             return returns, advantages, values
     
-    def get_action(self, state):
-        state = torch.FloatTensor(state)
+    def get_action(self, state_in):
+        state = torch.FloatTensor(state_in).to(self.device)
         if state.ndim == 3:
             state = torch.unsqueeze(state, dim=0)
         mean, log_std = self.actor(state)
@@ -90,19 +96,18 @@ class PPO:
         dist = Normal(mean, std)
         action = dist.sample()
         action_log_prob = dist.log_prob(action)
-        action = torch.squeeze(action)
-        action_log_prob = torch.squeeze(action_log_prob)
-        return action.detach().numpy(), action_log_prob.sum().detach().numpy()
+
+        return action.detach().cpu().numpy(), action_log_prob.sum().detach().cpu().numpy()
     
     def evaluate(self, batch_states, batch_actions):
         mean, log_std = self.actor(batch_states)
-        std = log_std.exp()
+        std = torch.exp(log_std)
+        
         dist = Normal(mean, std)
         action_log_prob = dist.log_prob(batch_actions)
-        return action_log_prob.sum((1, 2, 3)), dist.entropy()
+        return action_log_prob.sum((1, 2)), dist.entropy().sum((1,2))
 
     def get_value(self, state):
-        state = torch.FloatTensor(state)
         value = self.critic(state)
         return value.sum(1)
     
@@ -147,7 +152,7 @@ class PPO:
             for id in range(env.num_agent):
                 if len(states[id]) == 0:
                     continue
-                returns, advantages, values = self.cal_rt_adv(torch.Tensor(np.array(states[id])), torch.Tensor(np.array(rewards[id])), torch.Tensor(np.array(next_states[id])), torch.Tensor(np.array(terminals[id])))
+                returns, advantages, values = self.cal_rt_adv(torch.Tensor(np.array(states[id])).to(self.device), torch.Tensor(np.array(rewards[id])).to(self.device), torch.Tensor(np.array(next_states[id])).to(self.device), torch.Tensor(np.array(terminals[id])).to(self.device))
                 batch_states.extend(states[id])
                 batch_actions.extend(actions[id])
                 batch_log_probs.extend(log_probs[id])
@@ -212,6 +217,7 @@ class PPO:
                     pg_loss1 = -mb_advantages * ratio
                     pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - self.clip, 1 + self.clip)
                     pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+
                     newvalue = newvalue.view(-1)
                     if self.clip_vloss:
                         v_loss_unclipped = (newvalue - batch_returns[mb_inds]) ** 2
@@ -227,13 +233,15 @@ class PPO:
                         v_loss = 0.5 * ((newvalue - batch_returns[mb_inds]) ** 2).mean()
                     entropy_loss = entropy.mean()
                     loss = pg_loss - self.ent_coef * entropy_loss + v_loss * self.vf_coef
-
                     self.optimizer.zero_grad()
-                    loss.backward(retain_graph=True)
+                    loss.backward()
+                    
                     nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
                     nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
                     self.optimizer.step()
-                    self.logger['losses'].append(torch.clone(loss).detach().numpy())
+                
+
+                    self.logger['losses'].append(torch.clone(loss).detach().cpu().numpy())
             y_pred, y_true = batch_values.detach().cpu().numpy(), batch_returns.detach().cpu().numpy()
             var_y = np.var(y_true)
             explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y

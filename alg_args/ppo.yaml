@@ -6,7 +6,7 @@ alg_args:
     "gamma": 0.99
     "clip": 0.2
     "batch_size": 512
-    "n_updates_per_iteration": 7
+    "n_updates_per_iteration": 5
     "save_freq": 10
     "gae": True
     "norm_adv": True
