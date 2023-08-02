@@ -3,7 +3,7 @@ alg: "ppo"
 alg_args:
     "seed": 0
     "lr": 3.0e-4
-    "gamma": 0.1
+    "gamma": 0.99
     "clip": 0.2
     "batch_size": 512
     "n_updates_per_iteration": 5

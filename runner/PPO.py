@@ -3,7 +3,7 @@ import os
 import torch
 import random
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from controller.ppo.PPO2 import PPO
+from controller.ppo.PPO import PPO
 import numpy as np
 from rl_env.WRSN import WRSN
 import yaml

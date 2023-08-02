@@ -23,10 +23,14 @@ network = WRSN(scenario_path="physical_env/network/network_scenarios/hanoi1000n5
 controller = RandomController()
 
 request = network.reset()
-network.env.process(log(network.net, network.agents))   
+for id, _ in enumerate(network.net.targets_active):
+    if _ == 0:
+        print(id)
+
+#network.env.process(log(network.net, network.agents))   
 while not request["terminal"]:
-    print(request["agent_id"], request["action"], request["reward"], request["terminal"])
-    action, std = controller.make_action(request["agent_id"], request["state"], request["info"], network)
-    request = network.step(request["agent_id"], action.squeeze().detach().numpy())
+    print(request["agent_id"], request["action"], request["detailed_rewards"], request["terminal"])
+    action = controller.make_action(request["agent_id"], request["state"], request["info"], network)
+    request = network.step(request["agent_id"], action)
     
 print(network.net.env.now)
