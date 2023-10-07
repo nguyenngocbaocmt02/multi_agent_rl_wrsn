@@ -1,26 +1,37 @@
+import copy
+import numpy as np
 class Network:
-    def __init__(self, env, listNodes, baseStation, listTargets):
+    def __init__(self, env, listNodes, baseStation, listTargets, max_time):
         self.env = env
         self.listNodes = listNodes
         self.baseStation = baseStation
         self.listTargets = listTargets
-        self.targets_active = [1 for i in range(len(self.listTargets))]
-
+        self.targets_active = [1 for _ in range(len(self.listTargets))]
+        self.alive = 1
         # Setting BS and Node environment and network
         baseStation.env = self.env
         baseStation.net = self
+        self.max_time = max_time
+
+        self.frame = np.array([self.baseStation.location[0], self.baseStation.location[0], self.baseStation.location[1], self.baseStation.location[1]], np.float64)
         it = 0
         for node in self.listNodes:
             node.env = self.env
             node.net = self
             node.id = it
             it += 1
+            self.frame[0] = min(self.frame[0], node.location[0])
+            self.frame[1] = max(self.frame[1], node.location[0])
+            self.frame[2] = min(self.frame[2], node.location[1])
+            self.frame[3] = max(self.frame[3], node.location[1])
+        self.nodes_density = len(self.listNodes) / ((self.frame[1] - self.frame[0]) * (self.frame[3] - self.frame[2]))
         it = 0
 
         # Setting name for each target
         for target in listTargets:
             target.id = it
             it += 1
+         
 
     # Function is for setting nodes' level and setting all targets as covered
     def setLevels(self):
@@ -55,30 +66,27 @@ class Network:
         return
 
 
-    def operate(self, t=1, max_time=10):
-
+    def operate(self, t=1):
+        
         for node in self.listNodes:
             self.env.process(node.operate(t=t))
         self.env.process(self.baseStation.operate(t=t))
-
         while True:
             yield self.env.timeout(t / 10.0)
             self.setLevels()
-            alive = self.check_targets()
+            self.alive = self.check_targets()
             yield self.env.timeout(9.0 * t / 10.0)
-            if alive == 0 or self.env.now >= max_time:
-                if alive == 0:
-                    print ("BREAKING DUE TO ALIVE = 0")
-                else:
-                    print ("BREAKING DUE TO MAX_TIME < NOW")
-                break
-            tmp = 0
-            for node in self.listNodes:
-                if node.status == 0:
-                    tmp += 1
-            print(self.env.now, tmp)
+            if self.alive == 0 or self.env.now >= self.max_time:
+                break         
         return
 
     # If any target dies, value is set to 0
     def check_targets(self):
         return min(self.targets_active)
+    
+    def check_nodes(self):
+        tmp = 0
+        for node in self.listNodes:
+            if node.status == 0:
+                tmp += 1
+        return tmp
